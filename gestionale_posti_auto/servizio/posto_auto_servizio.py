@@ -2,51 +2,79 @@ import sqlite3
 from modelli.posto_auto import PostoAuto
 
 class PostoAutoServizio:
-    #creo la connessione al database    
-    conn = sqlite3.connect("parcheggio.sqlite")
-
     #aggiungo un nuovo posto_auto al database
-    def aggiungi_posto_auto(self, conn):
-        posto_auto = self.salva_posto_auto()
-        cur = conn.cursor()
-        cur.execute('''INSERT INTO posti_auto (assegnazione) VALUES (?)''', 
-                    (posto_auto.assegnazione))
-        return "Nuovo posto auto aggiunto con successo"
+    @staticmethod
+    def aggiungi_posto_auto(conn):
+        try:
+            posto_auto = PostoAutoServizio.salva_posto_auto()
+            cur = conn.cursor()
+            cur.execute('''INSERT INTO posti_auto (assegnazione) VALUES (?)''', 
+                        (posto_auto.assegnazione,))
+            conn.commit()
+            return "Nuovo posto auto aggiunto con successo"
+        except ValueError as e:
+            conn.rollback()
+            return str(e)
+        except sqlite3.IntegrityError as e:
+            conn.rollback()
+            return str(e)
+        except sqlite3.Error:
+            conn.rollback()
+            return "Errore database durante l'aggiunta del posto auto"
 
     #istanzio un nuovo posto_auto 
-    def salva_posto_auto(self):
+    @staticmethod
+    def salva_posto_auto():
         assegnazione = "disponibile"
         posto_auto = PostoAuto(None, assegnazione)
         return posto_auto
     
     #visualizzo i posti auto presenti nel database
-    def visualizza_posto_auto(self, conn):
+    @staticmethod
+    def visualizza_posto_auto(conn):
         cur = conn.cursor()
-        cur.execute('SELECT * FROM posto_auto')
+        cur.execute('SELECT * FROM posti_auto')
         posto_auto = cur.fetchall()
         return posto_auto
 
     #visualizzo un posto auto in base all'id inserito dall'utente
-    def get_posto_auto_by_id(self, conn):
-        posto_id = self.inserisci_id()
+    @staticmethod
+    def get_posto_auto_by_id(conn):
+        try:
+            posto_id = PostoAutoServizio.inserisci_id("Inserisci l'id del posto auto: ")
+        except ValueError:
+            return None
+
         cur = conn.cursor()
         cur.execute('SELECT * FROM posti_auto WHERE posto_id = ?', (posto_id,))
         posto_auto = cur.fetchone()
         return posto_auto
 
     #inserisco l'id del posto auto
-    def inserisci_id(self):
-        posto_id = input("Inserisci l'id del posto auto").strip().lower()
-        if not posto_id : return "Il campo id non puo essere vuoto"
-        return posto_id
+    @staticmethod
+    def inserisci_id(messaggio="Inserisci l'id: "):
+        valore = input(messaggio).strip()
+        if not valore:
+            raise ValueError("Il campo id non puo essere vuoto")
+        if not valore.isdigit():
+            raise ValueError("L'id deve essere numerico")
+        return int(valore)
 
     #cancello un posto auto
-    def cancella_posto_auto(self, conn):
-        posto_id = self.inserisci_id()
-        cur = conn.cursor()
-        cur.execute('DELETE FROM posti_auto WHERE posto_id = ?', (posto_id,))
-        return "Posto auto cancellato con successo"
+    @staticmethod
+    def cancella_posto_auto(conn):
+        try:
+            posto_id = PostoAutoServizio.inserisci_id("Inserisci l'id del posto auto da cancellare: ")
 
-    #chiudo la connessione
-    conn.commit()
-    conn.close()
+            cur = conn.cursor()
+            cur.execute('DELETE FROM posti_auto WHERE posto_id = ?', (posto_id,))
+            conn.commit()
+            if cur.rowcount == 0:
+                raise ValueError("Nessun posto auto trovato con l'id indicato")
+            return "Posto auto cancellato con successo"
+        except ValueError as e:
+            conn.rollback()
+            return str(e)
+        except sqlite3.Error:
+            conn.rollback()
+            return "Errore database durante la cancellazione del posto auto"

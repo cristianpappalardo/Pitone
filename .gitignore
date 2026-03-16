@@ -1,2 +1,4 @@
-gestione_sala_prove_musicale/
-musicale_copilot/
+**/gestione_sala_prove_musicale/
+**/musicale_copilot/
+**/__pycache__/
+*.sqlite
